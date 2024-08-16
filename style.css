@@ -7,10 +7,35 @@ html{
 }
 
 p,a,button{
-  font-size: 2rem;
+  font-size: 1.5rem;
 }
 
 body{
   width: 100svw;
   height: 100svh;
+}
+
+.flex-vert{
+  display: flex;
+  flex-direction: column;
+}
+
+.gap30{
+  gap: 30px;
+}
+
+.box{
+  max-width: 50svw;
+  margin: 50px;
+}
+
+@media (max-width: 760px) {
+  html{
+    font-size: 14px;
+    font-family: "Noto Sans JP", sans-serif;
+    font-optical-sizing: auto;
+  }
+  .box{
+    max-width: 80%;
+  }
 }
