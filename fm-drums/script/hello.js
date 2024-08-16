@@ -1,3 +1,26 @@
+class FilterEnv {
+  constructor(filterObj, envelope){
+    this.filterModule = new Tone.Filter(filterObj.freq, filterObj.type, filterObj.rolloff)
+    this.filterModule.Q.value = filterObj.q
+    this.envelope = new Tone.Envelope(envelope.a, envelope.d, envelope.s, envelope.r)
+    this.scale = new Tone.Scale(0,1)
+    this.filterModule.connect(this.scale)
+  }
+
+  setFiterRange(min, max){
+    this.scale.min = min
+    this.scale.max = max
+  }
+
+  connect(){
+    return this.filterModule
+  }
+
+  triggerAttack(){
+    this.envelope.triggerAttack();
+  }
+}
+
 // ---------------------------------------------------------------------------- inst
 
 const lfo = new Tone.LFO(5 ,0 , 2);
@@ -11,7 +34,6 @@ const kick = new Tone.MembraneSynth({
     release: 0.1
   },
 });
-
 
 const hh = new Tone.MetalSynth();
 const hhCh = new Tone.Channel(-8,0);
@@ -28,7 +50,7 @@ const sn = new Tone.FMSynth({
   },
   envelope: {
     attack: 0.001,
-    decay: 0.4,
+    decay: 0.3,
     sustain: 0.1,
     release: 0.1
   },
@@ -57,6 +79,54 @@ const hpfEnv = new Tone.Envelope(0.01, 0.2, 0, 0.01)
 hpfEnv.connect(hpfScale)
 hpfScale.connect(snHpf.frequency)
 
+// const snHpf = new FilterEnv(
+//   {
+//     freq: 200,
+//     q: 10,
+//     type: "highpass",
+//     rolloff: -48
+//   },
+//   {
+//     a: 0.01,
+//     d: 0.2,
+//     s: 0,
+//     r: 0.01
+//   }
+// ).setFiterRange(100,180);
+
+const tom = new Tone.FMSynth({
+  harmonicity: 0.7,
+  modulationIndex: 10,
+  oscillator: {
+    type: "sine",
+  },
+  envelope: {
+    attack: 0.001,
+    decay: 0.3,
+    sustain: 0.1,
+    release: 0.01
+  },
+  modulation: {
+    type: "triangle"
+  },
+  modulationEnvelope: {
+    attack: 0.01,
+    decay: 0.3,
+    sustain: 0.2,
+    release: 0.01,
+  },
+})
+
+// const tomLpf = new Tone.Filter(100 , "highpass", -48)
+// tomLpf.Q.value = 10;
+
+// const lpfScale = new Tone.Scale(100, 180)
+// const lpfEnv = new Tone.Envelope(0.01, 0.2, 0, 0.01)
+// hpfEnv.connect(hpfScale)
+// hpfScale.connect(snHpf.frequency)
+
+
+
 // ---------------------------------------------------------------------------- fx
 
 const dist = new Tone.Distortion(0.2)
@@ -64,20 +134,26 @@ const dist = new Tone.Distortion(0.2)
 // ---------------------------------------------------------------------------- routing
 
 const master = new Tone.Channel(-12,0)
-kick.chain(dist , new Tone.Channel(0,0), master, Tone.Destination)
-hh.chain(new Tone.Channel(-8,0), master, Tone.Destination)
-sn.chain(snHpf , dist ,new Tone.Channel(0,0), master, Tone.Destination)
+
+kick.chain(dist , new Tone.Channel(0,0), master)
+hh.chain(new Tone.Channel(-8,0), master)
+sn.chain( dist ,new Tone.Channel(0,0), master)
+tom.chain(new Tone.Channel(0,0), master)
+
+master.chain(Tone.Destination)
 
 // ---------------------------------------------------------------------------- events
 let tone = () => {
   
-  const kPat = [1,0,0,0,1,0,1,1]
+  const kPat = [1,0,1,0,1,0,0,1]
   const snPat = [
       0,0,0,0,
       1,0,0,0,
-      0,0,1,0,
+      0,1,0,0,
       1,0,0,0
     ]
+
+  const tomNote = ["F4", "F5"];
   let i = 0
   let j = 0
   let counter = 0
@@ -87,16 +163,16 @@ let tone = () => {
   new Tone.Loop((time) => {
     //kick sequence
     if(kPat[i] == 1) kick.triggerAttackRelease("F1", 0.5, time)
-    i = i > kPat.length - 1 ? 0 : i + 1;
+    i = i == kPat.length - 1 ? 0 : i + 1;
     
     //snare sequence
     if(snPat[j] == 1) {
       sn.triggerAttack("F4",time)
       freqEnv.triggerAttack()
       hpfEnv.triggerAttack()
-      sn.triggerRelease(time + 0.3)
+      sn.triggerRelease(time + 0.2)
     }
-    j = j > snPat.length - 1 ? 0 : j + 1;
+    j = j == snPat.length - 1 ? 0 : j + 1;
 
     //hh sequence
     hh.triggerAttackRelease("F3", remainder == 0 ? 0.0005 : 0.01 , time)
@@ -107,6 +183,12 @@ let tone = () => {
     }
     if(hhFreq.value <= Tone.Frequency("C3")){
       hhFreq.value = "C4"
+    }
+
+    // tom sequence
+    const k = counter % 3 == 0 ? 0 : 1;
+    if(counter % 6 == 0 || counter % 8 == 0){
+      tom.triggerAttackRelease(tomNote[k], 0.2, time)
     }
   }, "16n").start(0)
 
